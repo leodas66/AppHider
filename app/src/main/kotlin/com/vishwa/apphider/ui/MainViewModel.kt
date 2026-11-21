@@ -122,18 +122,19 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
                 ),
             )
             scheduleRehide()
-            container.notifications.show(hiddenApps.value.size)
+            val unhiddenNow = container.hiddenAppDao.getAll().count { it.shouldBeHidden && it.lastUnlockedAt != 0L }
+            container.notifications.show(unhiddenNow)
             withContext(Dispatchers.Main) { container.packages.launch(packageName) }
         }
     }
 
     fun unhidePermanently(packageName: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            container.root.unhide(packageName)
+            if (container.root.unhide(packageName).isFailure) return@launch
             container.hiddenAppDao.upsert(
                 HiddenApp(packageName, container.packages.labelOf(packageName), shouldBeHidden = false),
             )
-            cancelRehide()
+            updateRehideState()
         }
     }
 
@@ -147,20 +148,23 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
         viewModelScope.launch(Dispatchers.IO) {
             container.hiddenAppDao.getAll()
                 .filter { it.shouldBeHidden }
-                .forEach { container.root.hide(it.packageName) }
-            cancelRehide()
-            container.notifications.dismiss()
+                .forEach { app ->
+                    if (container.root.hide(app.packageName).isSuccess) {
+                        container.hiddenAppDao.upsert(app.copy(lastUnlockedAt = 0L))
+                    }
+                }
+            updateRehideState()
         }
     }
 
     fun unhideAll() {
         viewModelScope.launch(Dispatchers.IO) {
             container.hiddenAppDao.getAll().forEach { app ->
-                container.root.unhide(app.packageName)
-                container.hiddenAppDao.upsert(app.copy(shouldBeHidden = false))
+                if (container.root.unhide(app.packageName).isSuccess) {
+                    container.hiddenAppDao.upsert(app.copy(shouldBeHidden = false, lastUnlockedAt = 0L))
+                }
             }
-            cancelRehide()
-            container.notifications.dismiss()
+            updateRehideState()
         }
     }
 
@@ -246,14 +250,27 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
     }
 
     private fun scheduleRehide() {
+        val minutes = _timeout.value
+        if (minutes <= 0) return
         val request = OneTimeWorkRequestBuilder<RehideWorker>()
-            .setInitialDelay(_timeout.value.toLong(), TimeUnit.MINUTES)
+            .setInitialDelay(minutes.toLong(), TimeUnit.MINUTES)
             .build()
         container.work.enqueueUniqueWork(REHIDE_WORK, ExistingWorkPolicy.REPLACE, request)
     }
 
     private fun cancelRehide() {
         container.work.cancelUniqueWork(REHIDE_WORK)
+    }
+
+    private suspend fun updateRehideState() {
+        val unhiddenNow = container.hiddenAppDao.getAll().count { it.shouldBeHidden && it.lastUnlockedAt != 0L }
+        if (unhiddenNow == 0) {
+            cancelRehide()
+            container.notifications.dismiss()
+        } else {
+            container.notifications.show(unhiddenNow)
+            if (_timeout.value > 0) scheduleRehide() else cancelRehide()
+        }
     }
 
     private companion object {

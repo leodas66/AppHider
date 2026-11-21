@@ -83,6 +83,13 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 Text(stringResource(R.string.minutes, minutes))
             }
         }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RadioButton(selected = timeout <= 0, onClick = { viewModel.setTimeout(0) })
+            Text(stringResource(R.string.timeout_on_screen_off))
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),

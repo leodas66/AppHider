@@ -10,6 +10,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 import kotlin.io.use
 
 class UpdateRepository(private val context: Context) {
@@ -26,20 +27,7 @@ class UpdateRepository(private val context: Context) {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
 
     suspend fun check(): UpdateInfo = withContext(Dispatchers.IO) {
-        val root = JSONObject(fetchText(MANIFEST_URL))
-        val apkObject = root.getJSONObject("apk")
-        val urls = mutableMapOf<String, String>()
-        val keys = apkObject.keys()
-        while (keys.hasNext()) {
-            val abi = keys.next()
-            urls[abi] = apkObject.getString(abi)
-        }
-        UpdateInfo(
-            versionCode = root.getInt("versionCode"),
-            versionName = root.getString("versionName"),
-            releaseNotes = root.optString("releaseNotes"),
-            apkUrls = urls,
-        )
+        parseManifest(fetchText(MANIFEST_URL))
     }
 
     suspend fun download(info: UpdateInfo, onProgress: (Int) -> Unit): File = withContext(Dispatchers.IO) {
@@ -99,12 +87,7 @@ class UpdateRepository(private val context: Context) {
         }
     }
 
-    private fun selectApkUrl(info: UpdateInfo): String? {
-        Build.SUPPORTED_ABIS.forEach { abi ->
-            info.apkUrls[abi]?.let { return it }
-        }
-        return info.apkUrls["universal"]
-    }
+    private fun selectApkUrl(info: UpdateInfo): String? = selectApkUrl(info, Build.SUPPORTED_ABIS.toList())
 
     @Suppress("DEPRECATION")
     private fun verifyApk(apk: File) {
@@ -119,7 +102,7 @@ class UpdateRepository(private val context: Context) {
         val installed = packageManager.getPackageInfo(context.packageName, PackageManager.GET_SIGNATURES)
         val installedSignatures = installed.signatures?.map { it.toByteArray() }
         val archiveSignatures = archive.signatures?.map { it.toByteArray() }
-        if (installedSignatures.isNullOrEmpty() || installedSignatures != archiveSignatures) {
+        if (!signaturesMatch(installedSignatures, archiveSignatures)) {
             apk.delete()
             throw SecurityException("Downloaded APK signature does not match")
         }
@@ -130,4 +113,34 @@ class UpdateRepository(private val context: Context) {
         const val CONNECT_TIMEOUT_MS = 15_000
         const val READ_TIMEOUT_MS = 60_000
     }
+}
+
+internal fun signaturesMatch(installed: List<ByteArray>?, archive: List<ByteArray>?): Boolean {
+    if (installed.isNullOrEmpty() || archive.isNullOrEmpty()) return false
+    if (installed.size != archive.size) return false
+    return installed.zip(archive).all { (a, b) -> MessageDigest.isEqual(a, b) }
+}
+
+internal fun parseManifest(json: String): UpdateInfo {
+    val root = JSONObject(json)
+    val apkObject = root.getJSONObject("apk")
+    val urls = mutableMapOf<String, String>()
+    val keys = apkObject.keys()
+    while (keys.hasNext()) {
+        val abi = keys.next()
+        urls[abi] = apkObject.getString(abi)
+    }
+    return UpdateInfo(
+        versionCode = root.getInt("versionCode"),
+        versionName = root.getString("versionName"),
+        releaseNotes = root.optString("releaseNotes"),
+        apkUrls = urls,
+    )
+}
+
+internal fun selectApkUrl(info: UpdateInfo, supportedAbis: List<String>): String? {
+    supportedAbis.forEach { abi ->
+        info.apkUrls[abi]?.let { return it }
+    }
+    return info.apkUrls["universal"]
 }

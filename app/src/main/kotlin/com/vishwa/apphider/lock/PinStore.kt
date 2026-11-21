@@ -14,7 +14,7 @@ import javax.crypto.SecretKey
 class PinStore(context: Context) {
 
     private val prefs = context.getSharedPreferences("pin", Context.MODE_PRIVATE)
-    private val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+    private val keyStore by lazy { KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) } }
 
     fun hasPin(): Boolean =
         prefs.getString(KEY_SALT, null) != null && prefs.getString(KEY_HASH, null) != null

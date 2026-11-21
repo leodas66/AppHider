@@ -10,6 +10,9 @@ class SettingsStore(context: Context) {
         get() = prefs.getInt(KEY_TIMEOUT, 5)
         set(value) = prefs.edit().putInt(KEY_TIMEOUT, value).apply()
 
+    val isScreenOffRehide: Boolean
+        get() = autoRehideMinutes <= 0
+
     var biometricEnabled: Boolean
         get() = prefs.getBoolean(KEY_BIOMETRIC, true)
         set(value) = prefs.edit().putBoolean(KEY_BIOMETRIC, value).apply()

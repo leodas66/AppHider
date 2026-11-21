@@ -1,12 +1,15 @@
 package com.vishwa.apphider
 
 import android.app.Application
+import android.content.Intent
+import android.content.IntentFilter
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.topjohnwu.superuser.Shell
+import com.vishwa.apphider.boot.ScreenOffReceiver
 import com.vishwa.apphider.work.UpdateCheckWorker
 import java.util.concurrent.TimeUnit
 
@@ -28,6 +31,7 @@ class AppHiderApplication : Application() {
         super.onCreate()
         container = AppContainer(this)
         container.notifications.createChannel()
+        registerReceiver(ScreenOffReceiver(), IntentFilter(Intent.ACTION_SCREEN_OFF))
         scheduleUpdateCheck()
     }
 
