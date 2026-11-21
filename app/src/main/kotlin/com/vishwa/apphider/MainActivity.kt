@@ -6,8 +6,8 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.fragment.app.FragmentActivity
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricPrompt
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModelProvider
@@ -19,10 +19,6 @@ class MainActivity : FragmentActivity() {
 
     private lateinit var viewModel: MainViewModel
     private lateinit var biometricPrompt: BiometricPrompt
-
-    private val notificationPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,7 +42,11 @@ class MainActivity : FragmentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
-            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                REQUEST_NOTIFICATIONS,
+            )
         }
 
         setContent {
@@ -62,5 +62,9 @@ class MainActivity : FragmentActivity() {
             .setNegativeButtonText(getString(R.string.cancel))
             .build()
         biometricPrompt.authenticate(promptInfo)
+    }
+
+    private companion object {
+        const val REQUEST_NOTIFICATIONS = 1001
     }
 }
