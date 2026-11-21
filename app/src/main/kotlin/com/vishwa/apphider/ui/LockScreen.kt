@@ -14,6 +14,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,63 +49,69 @@ fun LockScreen(viewModel: MainViewModel, onBiometric: () -> Unit) {
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
     ) {
-        Icon(
-            imageVector = Icons.Default.Lock,
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = stringResource(if (pinSet) R.string.locked else R.string.set_pin),
-            modifier = Modifier.padding(top = 16.dp),
-            style = MaterialTheme.typography.headlineMedium,
-        )
-        Text(
-            text = stringResource(if (pinSet) R.string.locked_body else R.string.set_pin_body),
-            modifier = Modifier.padding(top = 4.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        OutlinedTextField(
-            value = pin,
-            onValueChange = { value ->
-                if (value.length <= 6 && value.all(Char::isDigit)) {
-                    pin = value
-                    error = false
-                }
-            },
-            label = { Text(stringResource(R.string.enter_pin)) },
-            supportingText = {
-                Text(stringResource(if (error) R.string.invalid_pin else R.string.pin_hint))
-            },
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.NumberPassword,
-                imeAction = ImeAction.Done,
-            ),
-            keyboardActions = KeyboardActions(onDone = { submit() }),
-            visualTransformation = PasswordVisualTransformation(),
-            singleLine = true,
-            isError = error,
-            modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
-        )
-
-        Button(
-            onClick = { submit() },
-            enabled = if (pinSet) pin.isNotBlank() else pin.length in 4..6,
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        Column(
+            modifier = Modifier.fillMaxSize().padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(stringResource(if (pinSet) R.string.unlock else R.string.set_pin))
-        }
+            Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = stringResource(if (pinSet) R.string.locked else R.string.set_pin),
+                modifier = Modifier.padding(top = 16.dp),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = stringResource(if (pinSet) R.string.locked_body else R.string.set_pin_body),
+                modifier = Modifier.padding(top = 4.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
-        if (pinSet && biometricEnabled && biometricAvailable) {
-            TextButton(onClick = onBiometric, modifier = Modifier.padding(top = 4.dp)) {
-                Text(stringResource(R.string.use_biometric))
+            OutlinedTextField(
+                value = pin,
+                onValueChange = { value ->
+                    if (value.length <= 6 && value.all(Char::isDigit)) {
+                        pin = value
+                        error = false
+                    }
+                },
+                label = { Text(stringResource(R.string.enter_pin)) },
+                supportingText = {
+                    Text(stringResource(if (error) R.string.invalid_pin else R.string.pin_hint))
+                },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.NumberPassword,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(onDone = { submit() }),
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                isError = error,
+                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+            )
+
+            Button(
+                onClick = { submit() },
+                enabled = if (pinSet) pin.isNotBlank() else pin.length in 4..6,
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            ) {
+                Text(stringResource(if (pinSet) R.string.unlock else R.string.set_pin))
+            }
+
+            if (pinSet && biometricEnabled && biometricAvailable) {
+                TextButton(onClick = onBiometric, modifier = Modifier.padding(top = 4.dp)) {
+                    Text(stringResource(R.string.use_biometric))
+                }
             }
         }
     }
