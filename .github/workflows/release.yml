@@ -25,6 +25,14 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Compute release version
+        run: |
+          set -euo pipefail
+          echo "VERSION_CODE=$((GITHUB_RUN_NUMBER + 1000))" >> "$GITHUB_ENV"
+          VERSION_NAME="${GITHUB_REF_NAME#v}"
+          if [[ ! "$VERSION_NAME" =~ ^[0-9] ]]; then VERSION_NAME="0.3.0"; fi
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+
       - name: Decode release keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -38,10 +46,34 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew :app:assembleDebug :app:assembleRelease --no-daemon
 
+      - name: Generate OTA manifest
+        env:
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          BASE_URL="https://github.com/${REPOSITORY}/releases/download/${RELEASE_TAG}"
+          mkdir -p app/build/ota
+          cat > app/build/ota/ota.json <<JSON
+          {
+            "versionCode": ${VERSION_CODE},
+            "versionName": "${VERSION_NAME}",
+            "releaseNotes": "Signed release ${VERSION_NAME}. Full notes: https://github.com/${REPOSITORY}/releases/tag/${RELEASE_TAG}",
+            "apk": {
+              "arm64-v8a": "${BASE_URL}/app-arm64-v8a-release.apk",
+              "armeabi-v7a": "${BASE_URL}/app-armeabi-v7a-release.apk",
+              "x86": "${BASE_URL}/app-x86-release.apk",
+              "x86_64": "${BASE_URL}/app-x86_64-release.apk",
+              "universal": "${BASE_URL}/app-universal-release.apk"
+            }
+          }
+          JSON
+
       - name: Publish APKs to release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk
+            app/build/ota/ota.json
           generate_release_notes: true

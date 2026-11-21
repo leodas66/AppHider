@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.fragment.app.FragmentActivity
 import androidx.biometric.BiometricPrompt
@@ -22,6 +23,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         viewModel = ViewModelProvider(this)[MainViewModel::class.java]
         biometricPrompt = BiometricPrompt(

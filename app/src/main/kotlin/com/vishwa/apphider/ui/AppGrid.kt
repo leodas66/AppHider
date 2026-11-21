@@ -1,14 +1,18 @@
 package com.vishwa.apphider.ui
 
+import android.view.View
+import android.widget.ImageView
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -17,32 +21,36 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.background
+import androidx.compose.ui.viewinterop.AndroidView
+import com.vishwa.apphider.R
 import com.vishwa.apphider.data.AppInfo
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AppGrid(
     items: List<AppInfo>,
-    dimmed: Boolean = false,
     onClick: (AppInfo) -> Unit,
     onLongClick: (AppInfo) -> Unit = {},
+    hidden: Boolean = false,
+    contentPadding: PaddingValues = PaddingValues(8.dp),
 ) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 96.dp),
+        columns = GridCells.Adaptive(minSize = 104.dp),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp),
+        contentPadding = contentPadding,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -50,8 +58,11 @@ fun AppGrid(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .alpha(if (dimmed) 0.55f else 1f)
+                    .heightIn(min = 104.dp)
                     .combinedClickable(onClick = { onClick(app) }, onLongClick = { onLongClick(app) }),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -61,27 +72,60 @@ fun AppGrid(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer),
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            text = app.label.take(1).uppercase(),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
+                        if (app.icon != null) {
+                            AndroidView(
+                                modifier = Modifier.size(48.dp).padding(4.dp),
+                                factory = { context ->
+                                    ImageView(context).apply {
+                                        scaleType = ImageView.ScaleType.FIT_CENTER
+                                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                                    }
+                                },
+                                update = { imageView ->
+                                    imageView.setImageDrawable(app.icon)
+                                    imageView.contentDescription = app.label
+                                },
+                            )
+                        } else {
+                            Text(
+                                text = app.label.take(1).uppercase(),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.titleLarge,
+                            )
+                        }
                     }
-                    Spacer(Modifier.height(8.dp))
                     Text(
                         text = app.label,
-                        maxLines = 1,
+                        modifier = Modifier.padding(top = 10.dp),
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                     )
-                    if (app.protected) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                        )
+                    if (hidden || app.protected) {
+                        Row(
+                            modifier = Modifier.padding(top = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = if (hidden) Icons.Default.VisibilityOff else Icons.Default.Lock,
+                                contentDescription = stringResource(
+                                    if (hidden) R.string.hidden_badge else R.string.protected_badge,
+                                ),
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = stringResource(
+                                    if (hidden) R.string.hidden_badge else R.string.protected_badge,
+                                ),
+                                modifier = Modifier.padding(start = 3.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }

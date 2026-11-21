@@ -6,6 +6,8 @@ plugins {
 }
 
 val releaseKeystoreFile = System.getenv("KEYSTORE_FILE")
+val envVersionCode = System.getenv("VERSION_CODE")?.toIntOrNull()
+val envVersionName = System.getenv("VERSION_NAME")?.removePrefix("v")?.takeIf { it.firstOrNull()?.isDigit() == true }
 
 android {
     namespace = "com.vishwa.apphider"
@@ -15,8 +17,8 @@ android {
         applicationId = "com.vishwa.apphider"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.2.1"
+        versionCode = envVersionCode ?: 4
+        versionName = envVersionName ?: "0.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

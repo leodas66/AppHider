@@ -11,6 +11,8 @@ import com.vishwa.apphider.lock.LockManager
 import com.vishwa.apphider.lock.PinStore
 import com.vishwa.apphider.notifications.Notifications
 import com.vishwa.apphider.root.RootManager
+import com.vishwa.apphider.update.UpdateInstaller
+import com.vishwa.apphider.update.UpdateRepository
 
 class AppContainer(private val context: Context) {
 
@@ -26,4 +28,6 @@ class AppContainer(private val context: Context) {
     val settings: SettingsStore by lazy { SettingsStore(context.applicationContext) }
     val work: WorkManager by lazy { WorkManager.getInstance(context.applicationContext) }
     val notifications: Notifications by lazy { Notifications(context.applicationContext) }
+    val updates: UpdateRepository by lazy { UpdateRepository(context.applicationContext) }
+    val updateInstaller: UpdateInstaller by lazy { UpdateInstaller(context.applicationContext) }
 }

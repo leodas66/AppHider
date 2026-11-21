@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.annotation.SuppressLint
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -26,6 +27,7 @@ class Notifications(private val context: Context) {
         manager.createNotificationChannel(channel)
     }
 
+    @SuppressLint("MissingPermission")
     fun show(unhiddenCount: Int) {
         if (!canNotify()) return
         val intent = Intent(context, HideAllReceiver::class.java).setAction(HideAllReceiver.ACTION)
@@ -41,6 +43,24 @@ class Notifications(private val context: Context) {
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
     }
 
+    @SuppressLint("MissingPermission")
+    fun showUpdateAvailable(versionName: String) {
+        if (!canNotify()) return
+        val intent = Intent(context, com.vishwa.apphider.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        val pendingIntent = PendingIntent.getActivity(context, UPDATE_REQUEST_CODE, intent, flags)
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setContentTitle(context.getString(R.string.update_notification_title))
+            .setContentText(context.getString(R.string.update_notification_body, versionName))
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(context).notify(UPDATE_NOTIFICATION_ID, notification)
+    }
+
     fun dismiss() {
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
     }
@@ -52,5 +72,7 @@ class Notifications(private val context: Context) {
     private companion object {
         const val CHANNEL_ID = "unhidden"
         const val NOTIFICATION_ID = 1
+        const val UPDATE_NOTIFICATION_ID = 2
+        const val UPDATE_REQUEST_CODE = 2
     }
 }

@@ -47,8 +47,9 @@ Clean Material 3 with dynamic color, following the system light/dark theme. Sing
 4. **Phase 3, lock:** PIN setup, biometric, lock-on-background.
 5. **Phase 4, Hidden tab:** unhide, launch, re-hide after the timeout or on Lock again.
 6. **Phase 5, safety:** panic button, notification action, Unhide all, boot-time check of Room against actual state, handling of root denied or package missing.
+7. **Phase 6, OTA updates:** publish `ota.json` with every release, pick the APK for the device ABI, verify the APK signature, and install silently with root via `pm install -r -d`.
 
-Phases 0 to 5 make the MVP.
+Phases 0 to 5 make the MVP. Phase 6 is the first post-MVP addition.
 
 ## Later extras
 

@@ -2,29 +2,82 @@
     <string name="app_name">App Hider</string>
     <string name="tab_apps">Apps</string>
     <string name="tab_hidden">Hidden</string>
+    <string name="tab_hidden_count">Hidden · %1$d</string>
     <string name="tab_settings">Settings</string>
+
     <string name="search_apps">Search apps</string>
+    <string name="search_clear">Clear search</string>
+    <string name="no_apps">No apps available</string>
+    <string name="no_apps_body">Apps installed on this device will appear here.</string>
+    <string name="no_apps_found">No apps found</string>
+    <string name="no_apps_found_body">Try a different name or package.</string>
+    <string name="clear_search">Clear search</string>
+
     <string name="hide">Hide</string>
     <string name="hide_confirm_title">Hide this app?</string>
     <string name="hide_confirm_body">It will disappear from the launcher, Settings and app queries until you unhide it.</string>
     <string name="cancel">Cancel</string>
+    <string name="protected_badge">Protected</string>
+    <string name="protected_explanation">This app is required by the system or by App Hider. It cannot be hidden.</string>
+
     <string name="unhide_launch">Unhide and launch</string>
     <string name="unhide_permanently">Unhide permanently</string>
     <string name="remove_from_list">Remove from list</string>
+    <string name="hidden_badge">Hidden</string>
+    <string name="hidden_options_body">Choose how to remove this app from the hidden list.</string>
     <string name="panic_hide">Hide all now</string>
     <string name="no_hidden">No hidden apps</string>
-    <string name="locked">Locked</string>
+    <string name="no_hidden_body">Apps you hide will wait here until you unhide them.</string>
+    <string name="go_to_apps">Go to Apps</string>
+
+    <string name="locked">App Hider is locked</string>
+    <string name="locked_body">Enter your PIN to continue.</string>
     <string name="enter_pin">Enter PIN</string>
+    <string name="pin_hint">Use 4 to 6 digits</string>
     <string name="unlock">Unlock</string>
     <string name="use_biometric">Use biometric</string>
-    <string name="invalid_pin">Invalid PIN</string>
+    <string name="invalid_pin">That PIN is not correct.</string>
     <string name="set_pin">Set PIN</string>
-    <string name="root_available">Root granted</string>
-    <string name="root_unavailable">Root not available</string>
-    <string name="unhide_all">Unhide all</string>
+    <string name="set_pin_body">Choose a PIN you will remember. There is no recovery option.</string>
+
+    <string name="section_behavior">Behavior</string>
+    <string name="section_security">Security</string>
+    <string name="section_hidden_apps">Hidden apps</string>
+    <string name="section_device">Device</string>
     <string name="rehide_timeout">Auto re-hide timeout</string>
+    <string name="timeout_body">Return apps to hidden state after this delay.</string>
+    <string name="minutes">%1$d min</string>
     <string name="timeout_on_screen_off">On screen off</string>
     <string name="biometric">Biometric unlock</string>
+    <string name="biometric_unavailable">No biometric hardware is available.</string>
+    <string name="change_pin">Change PIN</string>
+    <string name="current_pin">Current PIN</string>
+    <string name="new_pin">New PIN</string>
+    <string name="wrong_current_pin">Current PIN is not correct.</string>
+    <string name="pin_invalid_length">New PIN must be 4 to 6 digits.</string>
+    <string name="root_available">Root access granted</string>
+    <string name="root_unavailable">Root access not available</string>
+    <string name="android_version">Android %1$s</string>
+    <string name="unhide_all">Unhide all</string>
+    <string name="unhide_all_title">Unhide all apps?</string>
+    <string name="unhide_all_body">Every app in the hidden list will become visible again. They will stay in the list.</string>
+
+    <string name="section_updates">Updates</string>
+    <string name="current_version">Current version: %1$s</string>
+    <string name="check_for_updates">Check for updates</string>
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_up_to_date">You are on the latest version.</string>
+    <string name="update_available">Update available: %1$s</string>
+    <string name="download_update">Download update</string>
+    <string name="downloading">Downloading update…</string>
+    <string name="downloading_percent">Downloading update… %1$d%%</string>
+    <string name="update_ready">Version %1$s is ready to install.</string>
+    <string name="install_update">Install update</string>
+    <string name="installing_update">Installing update…</string>
+    <string name="update_root_required">Root access is required to install updates.</string>
+    <string name="update_notification_title">Update available</string>
+    <string name="update_notification_body">App Hider %1$s is ready to install.</string>
+
     <string name="notification_channel">Unhidden apps</string>
     <string name="notification_title">Apps are unhidden</string>
 </resources>

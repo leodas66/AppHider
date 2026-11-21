@@ -1,6 +1,6 @@
 package com.vishwa.apphider.ui
 
-import androidx.compose.foundation.background
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -8,12 +8,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,12 +27,35 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.vishwa.apphider.R
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(viewModel: MainViewModel, onBiometric: () -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
     val locked by viewModel.locked.collectAsState()
+    val hidden by viewModel.hiddenApps.collectAsState()
+
+    if (locked) {
+        LockScreen(viewModel = viewModel, onBiometric = onBiometric)
+        return
+    }
+
+    BackHandler(enabled = tab != 0) { tab = 0 }
+
+    val title = when (tab) {
+        0 -> stringResource(R.string.tab_apps)
+        1 -> stringResource(R.string.tab_hidden_count, hidden.size)
+        else -> stringResource(R.string.tab_settings)
+    }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(title) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+            )
+        },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
@@ -56,14 +82,8 @@ fun MainScreen(viewModel: MainViewModel, onBiometric: () -> Unit) {
         Box(Modifier.padding(padding).fillMaxSize()) {
             when (tab) {
                 0 -> AppsScreen(viewModel)
-                1 -> HiddenScreen(viewModel)
+                1 -> HiddenScreen(viewModel, onOpenApps = { tab = 0 })
                 2 -> SettingsScreen(viewModel)
-            }
-
-            if (locked) {
-                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-                    LockScreen(viewModel = viewModel, onBiometric = onBiometric)
-                }
             }
         }
     }
