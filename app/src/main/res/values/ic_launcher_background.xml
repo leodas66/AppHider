@@ -1,3 +1,4 @@
 <resources>
     <color name="ic_launcher_background">#3F51B5</color>
+    <color name="ic_calculator_background">#37474F</color>
 </resources>

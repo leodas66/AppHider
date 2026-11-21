@@ -11,6 +11,10 @@ import androidx.work.WorkManager
 import com.topjohnwu.superuser.Shell
 import com.vishwa.apphider.boot.ScreenOffReceiver
 import com.vishwa.apphider.work.UpdateCheckWorker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class AppHiderApplication : Application() {
@@ -31,7 +35,11 @@ class AppHiderApplication : Application() {
         super.onCreate()
         container = AppContainer(this)
         container.notifications.createChannel()
+        container.disguise.apply()
         registerReceiver(ScreenOffReceiver(), IntentFilter(Intent.ACTION_SCREEN_OFF))
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            container.rehide.reconcile()
+        }
         scheduleUpdateCheck()
     }
 

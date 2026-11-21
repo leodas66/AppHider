@@ -4,8 +4,6 @@ import android.app.Application
 import androidx.biometric.BiometricManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
 import com.vishwa.apphider.AppHiderApplication
 import com.vishwa.apphider.R
 import com.vishwa.apphider.data.AppInfo
@@ -13,7 +11,6 @@ import com.vishwa.apphider.data.HiddenApp
 import com.vishwa.apphider.root.ProtectedPackages
 import com.vishwa.apphider.update.UpdateInfo
 import com.vishwa.apphider.update.UpdateUiState
-import com.vishwa.apphider.work.RehideWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,7 +23,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.util.concurrent.TimeUnit
 
 class MainViewModel(private val application: Application) : AndroidViewModel(application) {
 
@@ -91,6 +87,9 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
     private val _biometric = MutableStateFlow(container.settings.biometricEnabled)
     val biometric: StateFlow<Boolean> = _biometric
 
+    private val _disguised = MutableStateFlow(container.disguise.isEnabled)
+    val disguised: StateFlow<Boolean> = _disguised
+
     val currentVersion: String = "${container.updates.currentVersionName()} (${container.updates.currentVersionCode()})"
 
     private val _updateState = MutableStateFlow<UpdateUiState>(UpdateUiState.Idle)
@@ -143,7 +142,7 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
             if (row != null && row.shouldBeHidden) {
                 container.hiddenAppDao.upsert(row.copy(lastUnlockedAt = System.currentTimeMillis()))
             }
-            updateRehideState()
+            container.rehide.syncState(startWatcher = true)
             val launched = withContext(Dispatchers.Main) { container.packages.launch(packageName) }
             if (!launched) {
                 fail(application.getString(R.string.error_launch_failed, row?.label ?: packageName))
@@ -159,7 +158,7 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
                 return@launch
             }
             container.hiddenAppDao.upsert(row.copy(shouldBeHidden = false, lastUnlockedAt = 0L))
-            updateRehideState()
+            container.rehide.syncState()
         }
     }
 
@@ -173,7 +172,7 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
                 return@launch
             }
             container.hiddenAppDao.delete(row)
-            updateRehideState()
+            container.rehide.syncState()
         }
     }
 
@@ -190,7 +189,7 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
                     }
                 }
             if (failed) fail(application.getString(R.string.error_rehide_failed))
-            updateRehideState()
+            container.rehide.syncState()
         }
     }
 
@@ -205,7 +204,7 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
                 }
             }
             if (failed) fail(application.getString(R.string.error_unhide_all_failed))
-            updateRehideState()
+            container.rehide.syncState()
         }
     }
 
@@ -238,11 +237,21 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
     fun setTimeout(minutes: Int) {
         container.settings.autoRehideMinutes = minutes
         _timeout.value = minutes
+        viewModelScope.launch(Dispatchers.IO) { container.rehide.syncState() }
     }
 
     fun setBiometric(enabled: Boolean) {
         container.settings.biometricEnabled = enabled
         _biometric.value = enabled
+    }
+
+    fun setDisguised(enabled: Boolean) {
+        if (enabled && !container.pin.hasPin()) {
+            fail(application.getString(R.string.disguise_pin_required))
+            return
+        }
+        container.disguise.setEnabled(enabled)
+        _disguised.value = enabled
     }
 
     fun checkForUpdates() {
@@ -296,33 +305,5 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
 
     private fun fail(message: String) {
         _error.value = message
-    }
-
-    private fun scheduleRehide() {
-        val minutes = _timeout.value
-        if (minutes <= 0) return
-        val request = OneTimeWorkRequestBuilder<RehideWorker>()
-            .setInitialDelay(minutes.toLong(), TimeUnit.MINUTES)
-            .build()
-        container.work.enqueueUniqueWork(REHIDE_WORK, ExistingWorkPolicy.REPLACE, request)
-    }
-
-    private fun cancelRehide() {
-        container.work.cancelUniqueWork(REHIDE_WORK)
-    }
-
-    private suspend fun updateRehideState() {
-        val unhiddenNow = container.hiddenAppDao.getAll().count { it.shouldBeHidden && it.lastUnlockedAt != 0L }
-        if (unhiddenNow == 0) {
-            cancelRehide()
-            container.notifications.dismiss()
-        } else {
-            container.notifications.show(unhiddenNow)
-            if (_timeout.value > 0) scheduleRehide() else cancelRehide()
-        }
-    }
-
-    private companion object {
-        const val REHIDE_WORK = "rehide"
     }
 }

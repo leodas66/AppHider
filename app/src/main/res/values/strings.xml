@@ -15,7 +15,7 @@
 
     <string name="hide">Hide</string>
     <string name="hide_confirm_title">Hide this app?</string>
-    <string name="hide_confirm_body">It will disappear from the launcher, Settings and app queries until you unhide it.</string>
+    <string name="hide_confirm_body">It will disappear from the launcher and Settings &gt; Apps until you unhide it. Its data stays on the device.</string>
     <string name="cancel">Cancel</string>
     <string name="protected_badge">Protected</string>
     <string name="protected_explanation">This app is required by the system or by App Hider. It cannot be hidden.</string>
@@ -52,6 +52,10 @@
     <string name="timeout_on_screen_off">On screen off</string>
     <string name="biometric">Biometric unlock</string>
     <string name="biometric_unavailable">No biometric hardware is available.</string>
+    <string name="disguise">Disguise as calculator</string>
+    <string name="disguise_body">Shows a calculator instead of App Hider in the launcher. Open the real app with the dialer code %1$s or your PIN on the calculator keypad.</string>
+    <string name="disguise_pin_required">Set a PIN before enabling the disguise.</string>
+    <string name="disguise_calculator_name">Calculator</string>
     <string name="change_pin">Change PIN</string>
     <string name="current_pin">Current PIN</string>
     <string name="new_pin">New PIN</string>
@@ -83,6 +87,10 @@
 
     <string name="notification_channel">Unhidden apps</string>
     <string name="notification_title">Apps are unhidden</string>
+    <string name="watcher_title">Watching unhidden apps</string>
+    <string name="watcher_body">Apps will be re-hidden as soon as you leave them.</string>
+    <string name="rehide_error_title">Re-hide failed</string>
+    <string name="rehide_error_body">Some apps could not be re-hidden. Check root access and try again.</string>
 
     <string name="error_title">Something went wrong</string>
     <string name="ok">OK</string>

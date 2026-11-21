@@ -46,6 +46,7 @@ import com.vishwa.apphider.update.UpdateUiState
 fun SettingsScreen(viewModel: MainViewModel) {
     val timeout by viewModel.timeout.collectAsState()
     val biometric by viewModel.biometric.collectAsState()
+    val disguised by viewModel.disguised.collectAsState()
     val hasRoot by viewModel.rootAvailable.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
 
@@ -109,6 +110,21 @@ fun SettingsScreen(viewModel: MainViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Switch(checked = disguised, onCheckedChange = { viewModel.setDisguised(it) })
+            Column(modifier = Modifier.padding(start = 12.dp)) {
+                Text(stringResource(R.string.disguise))
+                Text(
+                    text = stringResource(R.string.disguise_body, "*#*#2774437#*#*"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 

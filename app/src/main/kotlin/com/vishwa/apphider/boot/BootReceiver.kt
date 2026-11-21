@@ -17,23 +17,7 @@ class BootReceiver : BroadcastReceiver() {
         val container = (context.applicationContext as AppHiderApplication).container
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                val installed = container.root.listAll().toSet()
-                container.hiddenAppDao.getAll().forEach { app ->
-                    if (app.packageName !in installed) {
-                        container.hiddenAppDao.delete(app)
-                        return@forEach
-                    }
-                    val actuallyHidden = container.root.isHidden(app.packageName)
-                    if (app.shouldBeHidden && !actuallyHidden) {
-                        container.root.hide(app.packageName)
-                    } else if (!app.shouldBeHidden && actuallyHidden) {
-                        container.root.unhide(app.packageName)
-                    }
-                    if (app.lastUnlockedAt != 0L) {
-                        container.hiddenAppDao.upsert(app.copy(lastUnlockedAt = 0L))
-                    }
-                }
-                container.notifications.dismiss()
+                container.rehide.reconcile()
             } finally {
                 pendingResult.finish()
             }

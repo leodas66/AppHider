@@ -1,6 +1,7 @@
 package com.vishwa.apphider.notifications
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -43,11 +44,31 @@ class Notifications(private val context: Context) {
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
     }
 
+    fun watcherNotification(): Notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        .setSmallIcon(android.R.drawable.ic_lock_lock)
+        .setContentTitle(context.getString(R.string.watcher_title))
+        .setContentText(context.getString(R.string.watcher_body))
+        .setOngoing(true)
+        .build()
+
+    @SuppressLint("MissingPermission")
+    fun showRehideError() {
+        if (!canNotify()) return
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setContentTitle(context.getString(R.string.rehide_error_title))
+            .setContentText(context.getString(R.string.rehide_error_body))
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(context).notify(REHIDE_ERROR_NOTIFICATION_ID, notification)
+    }
+
     @SuppressLint("MissingPermission")
     fun showUpdateAvailable(versionName: String) {
         if (!canNotify()) return
         val intent = Intent(context, com.vishwa.apphider.MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            action = com.vishwa.apphider.MainActivity.ACTION_SECRET_UNLOCK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         val pendingIntent = PendingIntent.getActivity(context, UPDATE_REQUEST_CODE, intent, flags)
@@ -63,16 +84,19 @@ class Notifications(private val context: Context) {
 
     fun dismiss() {
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+        NotificationManagerCompat.from(context).cancel(REHIDE_ERROR_NOTIFICATION_ID)
     }
 
     private fun canNotify(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
-    private companion object {
-        const val CHANNEL_ID = "unhidden"
-        const val NOTIFICATION_ID = 1
-        const val UPDATE_NOTIFICATION_ID = 2
-        const val UPDATE_REQUEST_CODE = 2
+    companion object {
+        const val WATCHER_NOTIFICATION_ID = 3
+        private const val CHANNEL_ID = "unhidden"
+        private const val NOTIFICATION_ID = 1
+        private const val REHIDE_ERROR_NOTIFICATION_ID = 4
+        private const val UPDATE_NOTIFICATION_ID = 2
+        private const val UPDATE_REQUEST_CODE = 2
     }
 }

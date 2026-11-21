@@ -4,9 +4,9 @@
 
 ## Goal and approach
 
-Build a rooted-Android app that fully hides chosen apps with `pm hide`, and opens them behind a PIN or biometric lock.
+Build a rooted-Android app that fully hides chosen apps by uninstalling them for the current user while keeping their data, and opens them behind a PIN or biometric lock.
 
-Full hide is the strongest option: a hidden package is unavailable, almost like uninstalled, but its data and package file stay on the device. It disappears from the launcher, Settings and other apps' queries. The cost is that a hidden app can't run, so it gets no notifications or background sync until you unhide it.
+Full hide removes the package from the launcher, Settings > Apps and other apps' queries. The APK remains installed for other users and its data stays on the device, so `pm install-existing --user <id>` restores it. The cost is that a hidden app can't run, so it gets no notifications or background sync until you unhide it. `pm hide` was rejected because some ROMs still list hidden packages in Settings.
 
 Why not the alternatives:
 
@@ -29,7 +29,7 @@ Clean Material 3 with dynamic color, following the system light/dark theme. Sing
 
 - **Apps screen:** adaptive icon grid with labels and a search bar. Tap an app to open a bottom sheet with Hide (with confirm). Protected apps (launcher, SystemUI, Settings, dialer, Play Services, your app) show a lock badge and can't be hidden.
 - **Hidden screen:** same grid, dimmed. Tap an app, pass the lock, then unhide, launch and re-hide. Long-press for Unhide permanently or Remove from list.
-- **Settings screen:** auto re-hide timeout (1, 5 or 15 minutes, or on screen off), change PIN, biometric on/off, Unhide all, root status and Android version.
+- **Settings screen:** auto re-hide timeout (1, 5 or 15 minutes, or on screen off), change PIN, biometric on/off, calculator disguise toggle, Unhide all, root status and Android version.
 
 ## Lock and panic button
 
@@ -41,11 +41,11 @@ Clean Material 3 with dynamic color, following the system light/dark theme. Sing
 
 ## Build phases
 
-1. **Phase 0, manual proof (30 min):** run `su -c "pm hide <pkg>"` and `su -c "pm unhide <pkg>"` on a test app. Check the launcher, Settings > Apps, recents, notifications and shortcuts. Write down your recovery command.
+1. **Phase 0, manual proof (30 min):** run `su -c "pm uninstall -k --user 0 <pkg>"` and `su -c "pm install-existing --user 0 <pkg>"` on a test app. Check the launcher, Settings > Apps, recents, notifications and shortcuts. Write down your recovery command.
 2. **Phase 1, core:** request root with `Shell.getShell()` on a splash screen. Build a RootManager with `hide`, `unhide`, `isHidden` and `listAll`. Use `pm list packages -u` to include hidden packages. Room table: package, label, hidden flag, last unlocked time.
 3. **Phase 2, Apps grid:** icon grid, search, hide flow with confirm dialog, protected list.
 4. **Phase 3, lock:** PIN setup, biometric, lock-on-background.
-5. **Phase 4, Hidden tab:** unhide, launch, re-hide after the timeout or on Lock again.
+5. **Phase 4, Hidden tab:** unhide, launch, re-hide when the foreground leaves the app, after the timeout or on screen off.
 6. **Phase 5, safety:** panic button, notification action, Unhide all, boot-time check of Room against actual state, handling of root denied or package missing.
 7. **Phase 6, OTA updates:** publish `ota.json` with every release, pick the APK for the device ABI, verify the APK signature, and install silently with root via `pm install -r -d`.
 
@@ -54,7 +54,6 @@ Phases 0 to 5 make the MVP. Phase 6 is the first post-MVP addition.
 ## Later extras
 
 - Quick Settings tile
-- Hide your own icon and open it with a dialer secret code (Evil Hide does this)
 - Scheduled hide with WorkManager
 - Hide groups (work, private)
 - Suspend and icon-only modes as per-app options

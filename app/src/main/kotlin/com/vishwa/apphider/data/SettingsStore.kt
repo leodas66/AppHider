@@ -17,8 +17,13 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean(KEY_BIOMETRIC, true)
         set(value) = prefs.edit().putBoolean(KEY_BIOMETRIC, value).apply()
 
+    var disguised: Boolean
+        get() = prefs.getBoolean(KEY_DISGUISED, false)
+        set(value) = prefs.edit().putBoolean(KEY_DISGUISED, value).apply()
+
     private companion object {
         const val KEY_TIMEOUT = "auto_rehide_minutes"
         const val KEY_BIOMETRIC = "biometric_enabled"
+        const val KEY_DISGUISED = "disguised"
     }
 }
