@@ -57,6 +57,7 @@
     <string name="pin_invalid_length">New PIN must be 4 to 6 digits.</string>
     <string name="root_available">Root access granted</string>
     <string name="root_unavailable">Root access not available</string>
+    <string name="refresh_root_status">Refresh</string>
     <string name="android_version">Android %1$s</string>
     <string name="unhide_all">Unhide all</string>
     <string name="unhide_all_title">Unhide all apps?</string>

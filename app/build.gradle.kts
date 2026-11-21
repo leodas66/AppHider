@@ -92,7 +92,7 @@ dependencies {
 
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("androidx.biometric:biometric:1.1.0")
-    implementation("com.github.topjohnwu.libsu:core:5.2.2")
+    implementation("com.github.topjohnwu.libsu:core:6.0.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 

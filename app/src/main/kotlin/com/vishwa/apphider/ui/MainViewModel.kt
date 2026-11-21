@@ -63,7 +63,10 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
     )
 
     val locked: StateFlow<Boolean> = container.lock.locked
-    val rootAvailable = MutableStateFlow(container.root.isRootAvailable())
+
+    private val _rootAvailable = MutableStateFlow(false)
+    val rootAvailable: StateFlow<Boolean> = _rootAvailable
+
     val pinSet = MutableStateFlow(container.pin.hasPin())
     val biometricAvailable = BiometricManager.from(application)
         .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
@@ -81,6 +84,11 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
 
     init {
         refresh()
+        refreshRootState()
+    }
+
+    fun refreshRootState() {
+        container.root.checkRoot { available -> _rootAvailable.value = available }
     }
 
     fun refresh() {

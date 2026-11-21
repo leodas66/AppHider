@@ -27,6 +27,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +48,8 @@ fun SettingsScreen(viewModel: MainViewModel) {
     val biometric by viewModel.biometric.collectAsState()
     val hasRoot by viewModel.rootAvailable.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
+
+    LaunchedEffect(Unit) { viewModel.refreshRootState() }
 
     var confirmUnhideAll by remember { mutableStateOf(false) }
     var showPinDialog by remember { mutableStateOf(false) }
@@ -220,10 +223,19 @@ fun SettingsScreen(viewModel: MainViewModel) {
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
         SectionTitle(stringResource(R.string.section_device))
-        StatusRow(
-            available = hasRoot,
-            label = stringResource(if (hasRoot) R.string.root_available else R.string.root_unavailable),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            StatusRow(
+                available = hasRoot,
+                label = stringResource(if (hasRoot) R.string.root_available else R.string.root_unavailable),
+            )
+            TextButton(onClick = { viewModel.refreshRootState() }) {
+                Text(stringResource(R.string.refresh_root_status))
+            }
+        }
         Text(
             text = stringResource(R.string.android_version, Build.VERSION.RELEASE),
             modifier = Modifier.padding(top = 12.dp),

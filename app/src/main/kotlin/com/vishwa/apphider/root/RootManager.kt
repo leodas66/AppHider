@@ -4,7 +4,9 @@ import com.topjohnwu.superuser.Shell
 
 class RootManager {
 
-    fun isRootAvailable(): Boolean = Shell.isAppGrantedRoot() == true
+    fun checkRoot(onResult: (Boolean) -> Unit) {
+        Shell.getShell { shell -> onResult(shell.isRoot) }
+    }
 
     fun hide(packageName: String): Result<Unit> = runPm("pm hide", packageName)
 
