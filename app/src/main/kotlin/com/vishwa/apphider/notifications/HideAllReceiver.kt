@@ -24,8 +24,14 @@ class HideAllReceiver : BroadcastReceiver() {
                             container.hiddenAppDao.upsert(app.copy(lastUnlockedAt = 0L))
                         }
                     }
-                container.work.cancelUniqueWork(REHIDE_WORK)
-                container.notifications.dismiss()
+                val stillUnhidden = container.hiddenAppDao.getAll()
+                    .count { it.shouldBeHidden && it.lastUnlockedAt != 0L }
+                if (stillUnhidden == 0) {
+                    container.work.cancelUniqueWork(REHIDE_WORK)
+                    container.notifications.dismiss()
+                } else {
+                    container.notifications.show(stillUnhidden)
+                }
             } finally {
                 pendingResult.finish()
             }

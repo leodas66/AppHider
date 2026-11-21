@@ -36,6 +36,7 @@ import com.vishwa.apphider.data.AppInfo
 @Composable
 fun AppsScreen(viewModel: MainViewModel) {
     val apps by viewModel.apps.collectAsState()
+    val error by viewModel.error.collectAsState()
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<AppInfo?>(null) }
     var confirm by remember { mutableStateOf(false) }
@@ -151,4 +152,6 @@ fun AppsScreen(viewModel: MainViewModel) {
             },
         )
     }
+
+    ErrorDialog(message = error, onDismiss = viewModel::clearError)
 }

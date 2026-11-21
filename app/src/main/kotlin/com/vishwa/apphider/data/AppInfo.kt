@@ -7,4 +7,5 @@ data class AppInfo(
     val label: String,
     val protected: Boolean,
     val icon: Drawable? = null,
+    val unhidden: Boolean = false,
 )

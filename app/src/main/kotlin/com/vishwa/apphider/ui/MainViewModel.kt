@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import com.vishwa.apphider.AppHiderApplication
+import com.vishwa.apphider.R
 import com.vishwa.apphider.data.AppInfo
 import com.vishwa.apphider.data.HiddenApp
 import com.vishwa.apphider.root.ProtectedPackages
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -30,7 +32,8 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
 
     private val container get() = (application as AppHiderApplication).container
 
-    val hiddenApps = container.hiddenAppDao.observeAll().stateIn(
+    /** Apps the user wants hidden. Permanently unhidden apps are not part of this list. */
+    val hiddenApps = container.hiddenAppDao.observeTracked().stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList(),
@@ -39,7 +42,7 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
     private val _allApps = MutableStateFlow<List<AppInfo>>(emptyList())
 
     val apps: StateFlow<List<AppInfo>> = combine(_allApps, hiddenApps) { all, hidden ->
-        val hiddenNames = hidden.filter { it.shouldBeHidden }.map { it.packageName }.toSet()
+        val hiddenNames = hidden.map { it.packageName }.toSet()
         all.filterNot { it.packageName in hiddenNames }
     }.stateIn(
         scope = viewModelScope,
@@ -47,25 +50,36 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
         initialValue = emptyList(),
     )
 
-    val hiddenAppItems: StateFlow<List<AppInfo>> = hiddenApps.map { items ->
-        items.map { item ->
-            AppInfo(
-                packageName = item.packageName,
-                label = item.label,
-                protected = false,
-                icon = container.packages.iconOf(item.packageName),
-            )
-        }.sortedBy { it.label.lowercase() }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = emptyList(),
-    )
+    val hiddenAppItems: StateFlow<List<AppInfo>> = hiddenApps
+        .map { items ->
+            items.map { item ->
+                val info = container.packages.infoOrNull(item.packageName)
+                AppInfo(
+                    packageName = item.packageName,
+                    label = info?.label ?: item.label,
+                    protected = false,
+                    icon = info?.icon,
+                    unhidden = item.lastUnlockedAt != 0L,
+                )
+            }.sortedBy { it.label.lowercase() }
+        }
+        .flowOn(Dispatchers.IO)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList(),
+        )
 
     val locked: StateFlow<Boolean> = container.lock.locked
 
     private val _rootAvailable = MutableStateFlow(false)
     val rootAvailable: StateFlow<Boolean> = _rootAvailable
+
+    private val _rootChecked = MutableStateFlow(false)
+    val rootChecked: StateFlow<Boolean> = _rootChecked
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
 
     val pinSet = MutableStateFlow(container.pin.hasPin())
     val biometricAvailable = BiometricManager.from(application)
@@ -88,7 +102,10 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
     }
 
     fun refreshRootState() {
-        container.root.checkRoot { available -> _rootAvailable.value = available }
+        container.root.checkRoot { available ->
+            _rootAvailable.value = available
+            _rootChecked.value = true
+        }
     }
 
     fun refresh() {
@@ -102,9 +119,13 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
 
     fun hide(packageName: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            if (container.root.hide(packageName).isFailure) return@launch
+            val label = container.packages.labelOf(packageName)
+            if (container.root.hide(packageName).isFailure) {
+                fail(application.getString(R.string.error_hide_failed, label))
+                return@launch
+            }
             container.hiddenAppDao.upsert(
-                HiddenApp(packageName, container.packages.labelOf(packageName), shouldBeHidden = true),
+                HiddenApp(packageName, label, shouldBeHidden = true),
             )
             refresh()
         }
@@ -112,60 +133,84 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
 
     fun unhideAndLaunch(packageName: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            if (container.root.unhide(packageName).isFailure) return@launch
-            container.hiddenAppDao.upsert(
-                HiddenApp(
-                    packageName = packageName,
-                    label = container.packages.labelOf(packageName),
-                    shouldBeHidden = true,
-                    lastUnlockedAt = System.currentTimeMillis(),
-                ),
-            )
-            scheduleRehide()
-            val unhiddenNow = container.hiddenAppDao.getAll().count { it.shouldBeHidden && it.lastUnlockedAt != 0L }
-            container.notifications.show(unhiddenNow)
-            withContext(Dispatchers.Main) { container.packages.launch(packageName) }
+            val row = container.hiddenAppDao.get(packageName)
+            if (container.root.unhide(packageName).isFailure) {
+                fail(application.getString(R.string.error_unhide_failed, row?.label ?: packageName))
+                return@launch
+            }
+            // Only mark the app as temporarily visible when it is still supposed to be hidden.
+            // A permanently unhidden app must not be silently re-armed by tapping it.
+            if (row != null && row.shouldBeHidden) {
+                container.hiddenAppDao.upsert(row.copy(lastUnlockedAt = System.currentTimeMillis()))
+            }
+            updateRehideState()
+            val launched = withContext(Dispatchers.Main) { container.packages.launch(packageName) }
+            if (!launched) {
+                fail(application.getString(R.string.error_launch_failed, row?.label ?: packageName))
+            }
         }
     }
 
     fun unhidePermanently(packageName: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            if (container.root.unhide(packageName).isFailure) return@launch
-            container.hiddenAppDao.upsert(
-                HiddenApp(packageName, container.packages.labelOf(packageName), shouldBeHidden = false),
-            )
+            val row = container.hiddenAppDao.get(packageName) ?: return@launch
+            if (container.root.unhide(packageName).isFailure) {
+                fail(application.getString(R.string.error_unhide_failed, row.label))
+                return@launch
+            }
+            container.hiddenAppDao.upsert(row.copy(shouldBeHidden = false, lastUnlockedAt = 0L))
             updateRehideState()
         }
     }
 
     fun removeFromList(packageName: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            container.hiddenAppDao.get(packageName)?.let { container.hiddenAppDao.delete(it) }
+            val row = container.hiddenAppDao.get(packageName) ?: return@launch
+            // Never drop tracking for a package that is still hidden on the device: that would
+            // leave an app the user cannot find or unhide from this list.
+            if (container.root.isHidden(packageName) && container.root.unhide(packageName).isFailure) {
+                fail(application.getString(R.string.error_remove_failed, row.label))
+                return@launch
+            }
+            container.hiddenAppDao.delete(row)
+            updateRehideState()
         }
     }
 
     fun rehideAll() {
         viewModelScope.launch(Dispatchers.IO) {
+            var failed = false
             container.hiddenAppDao.getAll()
-                .filter { it.shouldBeHidden }
+                .filter { it.shouldBeHidden && it.lastUnlockedAt != 0L }
                 .forEach { app ->
                     if (container.root.hide(app.packageName).isSuccess) {
                         container.hiddenAppDao.upsert(app.copy(lastUnlockedAt = 0L))
+                    } else {
+                        failed = true
                     }
                 }
+            if (failed) fail(application.getString(R.string.error_rehide_failed))
             updateRehideState()
         }
     }
 
     fun unhideAll() {
         viewModelScope.launch(Dispatchers.IO) {
+            var failed = false
             container.hiddenAppDao.getAll().forEach { app ->
                 if (container.root.unhide(app.packageName).isSuccess) {
                     container.hiddenAppDao.upsert(app.copy(shouldBeHidden = false, lastUnlockedAt = 0L))
+                } else {
+                    failed = true
                 }
             }
+            if (failed) fail(application.getString(R.string.error_unhide_all_failed))
             updateRehideState()
         }
+    }
+
+    fun clearError() {
+        _error.value = null
     }
 
     fun verifyPin(pin: String): Boolean = container.pin.verify(pin)
@@ -247,6 +292,10 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
                 )
             }
         }
+    }
+
+    private fun fail(message: String) {
+        _error.value = message
     }
 
     private fun scheduleRehide() {

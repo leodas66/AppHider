@@ -24,11 +24,13 @@
     <string name="unhide_permanently">Unhide permanently</string>
     <string name="remove_from_list">Remove from list</string>
     <string name="hidden_badge">Hidden</string>
+    <string name="unhidden_badge">Unhidden</string>
     <string name="hidden_options_body">Choose how to remove this app from the hidden list.</string>
     <string name="panic_hide">Hide all now</string>
     <string name="no_hidden">No hidden apps</string>
     <string name="no_hidden_body">Apps you hide will wait here until you unhide them.</string>
     <string name="go_to_apps">Go to Apps</string>
+    <string name="root_required_hidden">Root access is required to hide and unhide apps.</string>
 
     <string name="locked">App Hider is locked</string>
     <string name="locked_body">Enter your PIN to continue.</string>
@@ -61,7 +63,7 @@
     <string name="android_version">Android %1$s</string>
     <string name="unhide_all">Unhide all</string>
     <string name="unhide_all_title">Unhide all apps?</string>
-    <string name="unhide_all_body">Every app in the hidden list will become visible again. They will stay in the list.</string>
+    <string name="unhide_all_body">Every app in the hidden list will become visible again and move back to the Apps tab.</string>
 
     <string name="section_updates">Updates</string>
     <string name="current_version">Current version: %1$s</string>
@@ -81,4 +83,13 @@
 
     <string name="notification_channel">Unhidden apps</string>
     <string name="notification_title">Apps are unhidden</string>
+
+    <string name="error_title">Something went wrong</string>
+    <string name="ok">OK</string>
+    <string name="error_hide_failed">Could not hide %1$s. Check that root access is granted.</string>
+    <string name="error_unhide_failed">Could not unhide %1$s. Check that root access is granted.</string>
+    <string name="error_remove_failed">Could not remove %1$s because it could not be unhidden.</string>
+    <string name="error_launch_failed">%1$s was unhidden but has no launchable activity.</string>
+    <string name="error_rehide_failed">Some apps could not be re-hidden. Try again.</string>
+    <string name="error_unhide_all_failed">Some apps could not be unhidden. Try again.</string>
 </resources>

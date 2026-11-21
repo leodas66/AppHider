@@ -29,7 +29,7 @@ class BootReceiver : BroadcastReceiver() {
                     } else if (!app.shouldBeHidden && actuallyHidden) {
                         container.root.unhide(app.packageName)
                     }
-                    if (app.lastUnlockedAt != null) {
+                    if (app.lastUnlockedAt != 0L) {
                         container.hiddenAppDao.upsert(app.copy(lastUnlockedAt = 0L))
                     }
                 }

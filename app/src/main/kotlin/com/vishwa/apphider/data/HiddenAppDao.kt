@@ -9,8 +9,8 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface HiddenAppDao {
 
-    @Query("SELECT * FROM hidden_apps ORDER BY label COLLATE NOCASE")
-    fun observeAll(): Flow<List<HiddenApp>>
+    @Query("SELECT * FROM hidden_apps WHERE shouldBeHidden = 1 ORDER BY label COLLATE NOCASE")
+    fun observeTracked(): Flow<List<HiddenApp>>
 
     @Query("SELECT * FROM hidden_apps")
     suspend fun getAll(): List<HiddenApp>
@@ -23,7 +23,4 @@ interface HiddenAppDao {
 
     @Delete
     suspend fun delete(app: HiddenApp)
-
-    @Query("UPDATE hidden_apps SET lastUnlockedAt = :time WHERE packageName = :packageName")
-    suspend fun setLastUnlocked(packageName: String, time: Long)
 }
