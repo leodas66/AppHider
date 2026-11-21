@@ -6,4 +6,5 @@
 - Toolchain in this sandbox: JDK 21, Android SDK at `/data/home/Android/Sdk` (platform 35, build-tools 35.0.0, platform-tools), Gradle 8.9 wrapper. `local.properties` is machine-specific and gitignored.
 - Constraints from the plan: root via `pm hide` / `pm unhide`; `QUERY_ALL_PACKAGES` needed to list apps; Room is the source of truth because hidden apps drop out of normal package queries; keep a strict protected-package list; prefer shell commands over reflection (non-SDK restrictions).
 - `AppContainer` is the manual DI root; `MainViewModel` drives all screens. `shouldBeHidden` in Room is user intent; actual hide state is on the device via `RootManager`.
-- Not a git repository — no commit/PR workflow to follow.
+- Git repo at `https://github.com/leodas66/AppHider` (private), default branch `main`. Commits are authored as `leodas66` via per-command `-c user.name/-c user.email`; no global git identity is configured.
+- `.github/workflows/release.yml` runs on `v*` tags and publishes ABI-split **debug** APKs (arm64-v8a, armeabi-v7a, x86, x86_64, universal) to a GitHub Release. No release signing config/secrets exist yet.
