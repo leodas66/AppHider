@@ -40,13 +40,13 @@ class RehideManager(
             when {
                 packageName !in known -> container.hiddenAppDao.delete(app)
 
-                app.shouldBeHidden && packageName in installed -> {
+                app.shouldBeHidden && (packageName in installed || container.root.isLegacyHidden(packageName)) -> {
                     if (container.root.hide(packageName).isSuccess) {
                         container.hiddenAppDao.upsert(app.copy(lastUnlockedAt = 0L))
                     }
                 }
 
-                !app.shouldBeHidden && packageName !in installed -> {
+                !app.shouldBeHidden && (packageName !in installed || container.root.isLegacyHidden(packageName)) -> {
                     if (container.root.unhide(packageName).isSuccess) {
                         container.hiddenAppDao.upsert(app.copy(lastUnlockedAt = 0L))
                     }

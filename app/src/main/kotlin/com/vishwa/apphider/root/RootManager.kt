@@ -12,22 +12,30 @@ class RootManager(private val context: Context) {
     }
 
     /**
-     * Hides an app with the `pm hide` flag. On this device it removes the app from Settings and
-     * the launcher while keeping the APK and data, so no backup or reinstall is needed.
+     * Hides an app the way Amarok does: disable it and set the legacy `pm hide` flag. On this ROM
+     * `pm hide` alone still leaves the app in Settings > Apps, but combining it with `pm disable`
+     * removes it. The APK and data stay in place, so no backup or reinstall is needed.
      */
     fun hide(packageName: String): Result<Unit> {
         validate(packageName)
         if (!isKnown(packageName)) {
             return Result.failure(IllegalStateException("Package is not installed on this device"))
         }
-        // Already hidden (either by pm hide or by an older strong-hide version).
-        if (!isVisible(packageName)) return Result.success(Unit)
+        if (isVisible(packageName)) {
+            val result = Shell.cmd("pm disable $packageName && pm hide $packageName").exec()
+            if (!result.isSuccess) return Result.failure(commandFailure(result.out + result.err))
+            return if (!isVisible(packageName)) {
+                Result.success(Unit)
+            } else {
+                Result.failure(IllegalStateException("Package is still visible after hide"))
+            }
+        }
 
-        val result = Shell.cmd("pm hide --user ${currentUserId()} $packageName").exec()
-        if (!result.isSuccess) return Result.failure(commandFailure(result.out + result.err))
-        val reported = result.out.firstNotNullOfOrNull(PmOutput::hiddenStateFrom)
-        if (reported == false || isVisible(packageName)) {
-            return Result.failure(IllegalStateException("Package is still visible after hide"))
+        // Hidden by an older strong-hide release: nothing to uninstall, but it must be disabled so
+        // it does not reappear in Settings.
+        if (isLegacyHidden(packageName)) {
+            val result = Shell.cmd("pm disable $packageName").exec()
+            if (!result.isSuccess) return Result.failure(commandFailure(result.out + result.err))
         }
         return Result.success(Unit)
     }
@@ -38,18 +46,15 @@ class RootManager(private val context: Context) {
         if (!isKnown(packageName)) {
             return Result.failure(IllegalStateException("Package is not installed on this device"))
         }
+        if (isVisible(packageName) && !isLegacyHidden(packageName)) return Result.success(Unit)
+
+        var result = Shell.cmd("pm unhide $packageName; pm enable $packageName").exec()
         if (isVisible(packageName)) return Result.success(Unit)
 
-        var result = Shell.cmd("pm unhide --user ${currentUserId()} $packageName").exec()
-        if (!result.isSuccess) return Result.failure(commandFailure(result.out + result.err))
-        if (isVisible(packageName)) return Result.success(Unit)
-
-        // Some ROMs clear the hidden flag without marking the package installed again. The APK is
-        // still on the device in that case, so install-existing can restore it without a copy.
+        // Strong-hidden apps from older releases need their APK restored first.
         result = Shell.cmd("pm install-existing --user ${currentUserId()} --wait $packageName").exec()
         if (isVisible(packageName)) return Result.success(Unit)
 
-        // Older strong-hide releases kept a copy of the APK. Use it as a last resort.
         val apks = backupApks(packageName)
         if (apks.isEmpty()) {
             return Result.failure(
@@ -68,6 +73,16 @@ class RootManager(private val context: Context) {
         validate(packageName)
         return isKnown(packageName) && !isVisible(packageName)
     }
+
+    /** Detects the legacy `pm hide` flag so older installs can be migrated. */
+    fun isLegacyHidden(packageName: String): Boolean {
+        validate(packageName)
+        val dump = Shell.cmd("pm dump $packageName").exec().out
+        return PmOutput.isHiddenForUser(dump, currentUserId())
+    }
+
+    /** Clears the legacy `pm hide` flag for apps that are meant to be visible. */
+    fun unhideLegacy(packageName: String): Result<Unit> = unhide(packageName)
 
     /**
      * Best-effort foreground package lookup using root `dumpsys`. Avoids hidden APIs and the

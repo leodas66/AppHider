@@ -46,6 +46,15 @@ class PmOutputTest {
     }
 
     @Test
+    fun `parses code path from pm dump`() {
+        assertEquals(
+            "/data/app/~~abc==/com.example.app-xyz==/",
+            PmOutput.codePathFrom("    codePath=/data/app/~~abc==/com.example.app-xyz==/"),
+        )
+        assertNull(PmOutput.codePathFrom("    hidden=true"))
+    }
+
+    @Test
     fun `parses focus lines from window and activity dumps`() {
         assertEquals(
             "com.example.app",
