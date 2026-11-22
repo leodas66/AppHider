@@ -1,11 +1,17 @@
 package com.vishwa.apphider.root
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class RootManagerTest {
 
-    private val root = RootManager()
+    private val context: Context = ApplicationProvider.getApplicationContext()
+    private val root = RootManager(context)
 
     @Test
     fun `invalid package names are rejected before shell command`() {
