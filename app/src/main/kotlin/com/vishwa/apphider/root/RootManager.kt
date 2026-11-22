@@ -12,113 +12,61 @@ class RootManager(private val context: Context) {
     }
 
     /**
-     * Hides an app by uninstalling it for the current user while keeping its APK and data. This is
-     * deliberately stronger than `pm hide`: hidden apps no longer appear in Settings > Apps.
-     *
-     * `pm uninstall -k` deletes the APK of user-installed apps on many ROMs, so the APKs are copied
-     * into this app's private files first. Without that backup `pm install-existing` cannot restore
-     * such an app later.
+     * Hides an app with the `pm hide` flag. On this device it removes the app from Settings and
+     * the launcher while keeping the APK and data, so no backup or reinstall is needed.
      */
     fun hide(packageName: String): Result<Unit> {
         validate(packageName)
-        if (!listAll().contains(packageName)) {
+        if (!isKnown(packageName)) {
             return Result.failure(IllegalStateException("Package is not installed on this device"))
         }
-        // Migrate apps hidden by an older version with `pm hide` to the strong-hide format. A
-        // legacy-hidden package is not reported by a normal `pm list packages`, so hiding it again
-        // without clearing that flag leaves it half-hidden and impossible to launch.
-        if (isLegacyHidden(packageName)) {
-            val cleared = unhideLegacy(packageName)
-            if (cleared.isFailure) return cleared
-        }
-        if (!isInstalled(packageName)) {
-            return Result.failure(IllegalStateException("Package is not installed for the current user"))
-        }
+        // Already hidden (either by pm hide or by an older strong-hide version).
+        if (!isVisible(packageName)) return Result.success(Unit)
 
-        val codePath = Shell.cmd("pm dump $packageName").exec().out
-            .firstNotNullOfOrNull(PmOutput::codePathFrom)
-        if (codePath == null || !codePath.startsWith("/data/app/") || !codePath.contains(packageName)) {
-            return Result.failure(IllegalStateException("Could not locate the APK of $packageName"))
+        val result = Shell.cmd("pm hide --user ${currentUserId()} $packageName").exec()
+        if (!result.isSuccess) return Result.failure(commandFailure(result.out + result.err))
+        val reported = result.out.firstNotNullOfOrNull(PmOutput::hiddenStateFrom)
+        if (reported == false || isVisible(packageName)) {
+            return Result.failure(IllegalStateException("Package is still visible after hide"))
         }
-
-        val backup = backupDir(packageName)
-        val copy = Shell.cmd(
-            "mkdir -p '${backup.absolutePath}' && cp '${codePath}'/*.apk '${backup.absolutePath}/'",
-        ).exec()
-        if (!copy.isSuccess) {
-            deleteBackup(packageName)
-            return Result.failure(commandFailure(copy.out + copy.err))
-        }
-
-        val result = Shell.cmd("pm uninstall -k --user ${currentUserId()} $packageName").exec()
-        if (!result.isSuccess) {
-            deleteBackup(packageName)
-            return Result.failure(commandFailure(result.out + result.err))
-        }
-
-        return if (!isInstalled(packageName) && listAll().contains(packageName)) {
-            Result.success(Unit)
-        } else {
-            deleteBackup(packageName)
-            Result.failure(IllegalStateException("Package is still installed after hide"))
-        }
+        return Result.success(Unit)
     }
 
     /** Restores a hidden app for the current user with its data intact. */
     fun unhide(packageName: String): Result<Unit> {
         validate(packageName)
-        // `pm hide` leaves the package installed, so `install-existing` would fail on it.
-        if (isLegacyHidden(packageName)) return unhideLegacy(packageName)
-        if (isInstalled(packageName)) return Result.success(Unit)
-        if (!listAll().contains(packageName)) {
+        if (!isKnown(packageName)) {
             return Result.failure(IllegalStateException("Package is not installed on this device"))
         }
+        if (isVisible(packageName)) return Result.success(Unit)
 
-        var result = Shell.cmd("pm install-existing --user ${currentUserId()} --wait $packageName").exec()
-        var restored = isInstalled(packageName)
+        var result = Shell.cmd("pm unhide --user ${currentUserId()} $packageName").exec()
+        if (!result.isSuccess) return Result.failure(commandFailure(result.out + result.err))
+        if (isVisible(packageName)) return Result.success(Unit)
 
-        // System apps can be reinstalled from their system APK, but user-installed apps need the
-        // backup that was made when they were hidden.
-        if (!restored) {
-            val apks = backupApks(packageName)
-            if (apks.isEmpty()) {
-                return Result.failure(
-                    IllegalStateException("The APK of $packageName is missing. Reinstall the app, then hide it again."),
-                )
-            }
-            val paths = apks.joinToString(" ") { "'${it.absolutePath}'" }
-            result = Shell.cmd("pm install -r -d --user ${currentUserId()} $paths").exec()
-            restored = isInstalled(packageName)
+        // Some ROMs clear the hidden flag without marking the package installed again. The APK is
+        // still on the device in that case, so install-existing can restore it without a copy.
+        result = Shell.cmd("pm install-existing --user ${currentUserId()} --wait $packageName").exec()
+        if (isVisible(packageName)) return Result.success(Unit)
+
+        // Older strong-hide releases kept a copy of the APK. Use it as a last resort.
+        val apks = backupApks(packageName)
+        if (apks.isEmpty()) {
+            return Result.failure(
+                IllegalStateException("The APK of $packageName is missing. Reinstall the app, then hide it again."),
+            )
         }
-
-        if (!restored) return Result.failure(commandFailure(result.out + result.err))
+        val paths = apks.joinToString(" ") { "'${it.absolutePath}'" }
+        result = Shell.cmd("pm install -r -d --user ${currentUserId()} $paths").exec()
+        if (!isVisible(packageName)) return Result.failure(commandFailure(result.out + result.err))
         deleteBackup(packageName)
         return Result.success(Unit)
     }
 
-    /** True when the package is known to the system but not installed for the current user. */
+    /** True when the package is known to the system but not visible for the current user. */
     fun isHidden(packageName: String): Boolean {
         validate(packageName)
-        return listAll().contains(packageName) && !isInstalled(packageName)
-    }
-
-    /** Detects the legacy `pm hide` flag so older installs can be migrated. */
-    fun isLegacyHidden(packageName: String): Boolean {
-        validate(packageName)
-        val dump = Shell.cmd("pm dump $packageName").exec().out
-        return PmOutput.isHiddenForUser(dump, currentUserId())
-    }
-
-    /** Clears the legacy `pm hide` flag for apps that are meant to be visible. */
-    fun unhideLegacy(packageName: String): Result<Unit> {
-        validate(packageName)
-        val result = Shell.cmd("pm unhide --user ${currentUserId()} $packageName").exec()
-        if (!result.isSuccess) return Result.failure(commandFailure(result.out + result.err))
-        val reported = result.out.firstNotNullOfOrNull(PmOutput::hiddenStateFrom)
-        if (reported == true || isLegacyHidden(packageName)) {
-            return Result.failure(IllegalStateException("Package is still hidden"))
-        }
-        return Result.success(Unit)
+        return isKnown(packageName) && !isVisible(packageName)
     }
 
     /**
@@ -141,8 +89,12 @@ class RootManager(private val context: Context) {
     fun listInstalled(): List<String> =
         packageList("pm list packages --user ${currentUserId()}")
 
-    private fun isInstalled(packageName: String): Boolean =
-        listInstalled().contains(packageName)
+    /** Filtered lookup is much cheaper than listing every package on the device. */
+    private fun isVisible(packageName: String): Boolean =
+        packageList("pm list packages --user ${currentUserId()} $packageName").contains(packageName)
+
+    private fun isKnown(packageName: String): Boolean =
+        packageList("pm list packages -u --user ${currentUserId()} $packageName").contains(packageName)
 
     private fun packageList(command: String): List<String> =
         PmOutput.packagesFromList(Shell.cmd(command).exec().out).sorted()
