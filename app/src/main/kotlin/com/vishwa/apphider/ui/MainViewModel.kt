@@ -133,8 +133,9 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
     fun unhideAndLaunch(packageName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             val row = container.hiddenAppDao.get(packageName)
-            if (container.root.unhide(packageName).isFailure) {
-                fail(application.getString(R.string.error_unhide_failed, row?.label ?: packageName))
+            val unhide = container.root.unhide(packageName)
+            if (unhide.isFailure) {
+                failUnhide(row?.label ?: packageName, unhide)
                 return@launch
             }
             // Only mark the app as temporarily visible when it is still supposed to be hidden.
@@ -153,8 +154,9 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
     fun unhidePermanently(packageName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             val row = container.hiddenAppDao.get(packageName) ?: return@launch
-            if (container.root.unhide(packageName).isFailure) {
-                fail(application.getString(R.string.error_unhide_failed, row.label))
+            val unhide = container.root.unhide(packageName)
+            if (unhide.isFailure) {
+                failUnhide(row.label, unhide)
                 return@launch
             }
             container.hiddenAppDao.upsert(row.copy(shouldBeHidden = false, lastUnlockedAt = 0L))
@@ -301,6 +303,12 @@ class MainViewModel(private val application: Application) : AndroidViewModel(app
                 )
             }
         }
+    }
+
+    private fun failUnhide(label: String, result: Result<Unit>) {
+        val message = application.getString(R.string.error_unhide_failed, label)
+        val cause = result.exceptionOrNull()?.message
+        fail(if (cause.isNullOrBlank()) message else "$message\n$cause")
     }
 
     private fun fail(message: String) {

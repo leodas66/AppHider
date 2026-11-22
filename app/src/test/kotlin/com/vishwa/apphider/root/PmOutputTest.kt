@@ -28,6 +28,14 @@ class PmOutputTest {
     }
 
     @Test
+    fun `parses hidden flag from a real pm dump line`() {
+        val dump = listOf(
+            "    User 0: ceDataInode=123 deDataInode=456 installed=true hidden=true suspended=false",
+        )
+        assertTrue(PmOutput.isHiddenForUser(dump, 0))
+    }
+
+    @Test
     fun `parses package lists with and without uninstalled packages`() {
         val lines = listOf(
             "package:com.android.shell",
@@ -35,6 +43,15 @@ class PmOutputTest {
             "",
         )
         assertEquals(setOf("com.android.shell", "com.example.hidden"), PmOutput.packagesFromList(lines))
+    }
+
+    @Test
+    fun `parses code path from pm dump`() {
+        assertEquals(
+            "/data/app/~~abc==/com.example.app-xyz==/",
+            PmOutput.codePathFrom("    codePath=/data/app/~~abc==/com.example.app-xyz==/"),
+        )
+        assertNull(PmOutput.codePathFrom("    hidden=true"))
     }
 
     @Test

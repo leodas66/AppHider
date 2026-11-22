@@ -23,7 +23,7 @@ class AppContainer(private val context: Context) {
     }
 
     val hiddenAppDao: HiddenAppDao by lazy { database.hiddenAppDao() }
-    val root: RootManager by lazy { RootManager() }
+    val root: RootManager by lazy { RootManager(context.applicationContext) }
     val pin: PinStore by lazy { PinStore(context.applicationContext) }
     val lock: LockManager by lazy { LockManager() }
     val packages: PackageRepository by lazy { PackageRepository(context.applicationContext) }

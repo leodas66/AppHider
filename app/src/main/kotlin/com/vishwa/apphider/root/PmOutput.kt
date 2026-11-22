@@ -7,6 +7,7 @@ internal object PmOutput {
     private val USER_HIDDEN = Regex("""User\s+(\d+):.*?\bhidden=(true|false)\b""")
     private val ANY_HIDDEN = Regex("""\bhidden=(true|false)\b""")
     private val PACKAGE_LINE = Regex("""^package:(\S+)$""")
+    private val CODE_PATH = Regex("""^\s*codePath=(\S+)""")
     private val FOCUSED_PACKAGE =
         Regex("""\bu\d+\s*\|?\s*([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+)/""")
 
@@ -30,6 +31,9 @@ internal object PmOutput {
     /** Parses `pm list packages`, including uninstalled packages when `-u` was used. */
     fun packagesFromList(lines: List<String>): Set<String> =
         lines.mapNotNull { PACKAGE_LINE.find(it)?.groupValues?.get(1) }.toSet()
+
+    /** APK directory reported by `pm dump`, needed to back up user-installed apps before hiding. */
+    fun codePathFrom(line: String): String? = CODE_PATH.find(line)?.groupValues?.get(1)
 
     /** Extracts a package name from `dumpsys window` / `dumpsys activity` focus lines. */
     fun packageFromFocusLine(line: String): String? =

@@ -1,9 +1,11 @@
 package com.vishwa.apphider.root
 
+import android.content.Context
 import android.os.Process
 import com.topjohnwu.superuser.Shell
+import java.io.File
 
-class RootManager {
+class RootManager(private val context: Context) {
 
     fun checkRoot(onResult: (Boolean) -> Unit) {
         Shell.getShell { shell -> onResult(shell.isRoot) }
@@ -12,20 +14,52 @@ class RootManager {
     /**
      * Hides an app by uninstalling it for the current user while keeping its APK and data. This is
      * deliberately stronger than `pm hide`: hidden apps no longer appear in Settings > Apps.
+     *
+     * `pm uninstall -k` deletes the APK of user-installed apps on many ROMs, so the APKs are copied
+     * into this app's private files first. Without that backup `pm install-existing` cannot restore
+     * such an app later.
      */
     fun hide(packageName: String): Result<Unit> {
         validate(packageName)
         if (!listAll().contains(packageName)) {
             return Result.failure(IllegalStateException("Package is not installed on this device"))
         }
-        if (!isInstalled(packageName)) return Result.success(Unit)
+        // Migrate apps hidden by an older version with `pm hide` to the strong-hide format. A
+        // legacy-hidden package is not reported by a normal `pm list packages`, so hiding it again
+        // without clearing that flag leaves it half-hidden and impossible to launch.
+        if (isLegacyHidden(packageName)) {
+            val cleared = unhideLegacy(packageName)
+            if (cleared.isFailure) return cleared
+        }
+        if (!isInstalled(packageName)) {
+            return Result.failure(IllegalStateException("Package is not installed for the current user"))
+        }
+
+        val codePath = Shell.cmd("pm dump $packageName").exec().out
+            .firstNotNullOfOrNull(PmOutput::codePathFrom)
+        if (codePath == null || !codePath.startsWith("/data/app/") || !codePath.contains(packageName)) {
+            return Result.failure(IllegalStateException("Could not locate the APK of $packageName"))
+        }
+
+        val backup = backupDir(packageName)
+        val copy = Shell.cmd(
+            "mkdir -p '${backup.absolutePath}' && cp '${codePath}'/*.apk '${backup.absolutePath}/'",
+        ).exec()
+        if (!copy.isSuccess) {
+            deleteBackup(packageName)
+            return Result.failure(commandFailure(copy.out + copy.err))
+        }
 
         val result = Shell.cmd("pm uninstall -k --user ${currentUserId()} $packageName").exec()
-        if (!result.isSuccess) return Result.failure(commandFailure(result.out + result.err))
+        if (!result.isSuccess) {
+            deleteBackup(packageName)
+            return Result.failure(commandFailure(result.out + result.err))
+        }
 
         return if (!isInstalled(packageName) && listAll().contains(packageName)) {
             Result.success(Unit)
         } else {
+            deleteBackup(packageName)
             Result.failure(IllegalStateException("Package is still installed after hide"))
         }
     }
@@ -33,19 +67,33 @@ class RootManager {
     /** Restores a hidden app for the current user with its data intact. */
     fun unhide(packageName: String): Result<Unit> {
         validate(packageName)
+        // `pm hide` leaves the package installed, so `install-existing` would fail on it.
+        if (isLegacyHidden(packageName)) return unhideLegacy(packageName)
         if (isInstalled(packageName)) return Result.success(Unit)
         if (!listAll().contains(packageName)) {
             return Result.failure(IllegalStateException("Package is not installed on this device"))
         }
 
-        val result = Shell.cmd("pm install-existing --user ${currentUserId()} --wait $packageName").exec()
-        if (!result.isSuccess) return Result.failure(commandFailure(result.out + result.err))
+        var result = Shell.cmd("pm install-existing --user ${currentUserId()} --wait $packageName").exec()
+        var restored = isInstalled(packageName)
 
-        return if (isInstalled(packageName)) {
-            Result.success(Unit)
-        } else {
-            Result.failure(IllegalStateException("Package was not restored after unhide"))
+        // System apps can be reinstalled from their system APK, but user-installed apps need the
+        // backup that was made when they were hidden.
+        if (!restored) {
+            val apks = backupApks(packageName)
+            if (apks.isEmpty()) {
+                return Result.failure(
+                    IllegalStateException("The APK of $packageName is missing. Reinstall the app, then hide it again."),
+                )
+            }
+            val paths = apks.joinToString(" ") { "'${it.absolutePath}'" }
+            result = Shell.cmd("pm install -r -d --user ${currentUserId()} $paths").exec()
+            restored = isInstalled(packageName)
         }
+
+        if (!restored) return Result.failure(commandFailure(result.out + result.err))
+        deleteBackup(packageName)
+        return Result.success(Unit)
     }
 
     /** True when the package is known to the system but not installed for the current user. */
@@ -67,7 +115,9 @@ class RootManager {
         val result = Shell.cmd("pm unhide --user ${currentUserId()} $packageName").exec()
         if (!result.isSuccess) return Result.failure(commandFailure(result.out + result.err))
         val reported = result.out.firstNotNullOfOrNull(PmOutput::hiddenStateFrom)
-        if (reported == true) return Result.failure(IllegalStateException("Package is still hidden"))
+        if (reported == true || isLegacyHidden(packageName)) {
+            return Result.failure(IllegalStateException("Package is still hidden"))
+        }
         return Result.success(Unit)
     }
 
@@ -96,6 +146,19 @@ class RootManager {
 
     private fun packageList(command: String): List<String> =
         PmOutput.packagesFromList(Shell.cmd(command).exec().out).sorted()
+
+    private fun backupDir(packageName: String): File =
+        File(File(context.applicationContext.filesDir, "hidden-apks"), packageName)
+
+    private fun backupApks(packageName: String): List<File> =
+        backupDir(packageName).listFiles()
+            .orEmpty()
+            .filter { it.isFile && it.name.endsWith(".apk", ignoreCase = true) }
+            .sortedWith(compareBy({ it.name != "base.apk" }, { it.name }))
+
+    private fun deleteBackup(packageName: String) {
+        Shell.cmd("rm -rf '${backupDir(packageName).absolutePath}'").exec()
+    }
 
     private fun commandFailure(lines: List<String>): RuntimeException =
         RuntimeException(lines.joinToString("\n").ifBlank { "Shell command failed" })
